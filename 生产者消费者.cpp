@@ -23,20 +23,23 @@ queue<Product> Q;
 void ProducerActor()
 {
 	unique_lock<mutex> lockerProducer(m);//创建锁，保证缓存区的访问是互斥的
+
 	cout << this_thread::get_id() << "获得了锁" << endl;
 	while (Q.size() >= MAX_CACHE_LENGTH) {
 		//当前缓存区已经满了，那么该进程需要被暂停
-		cout << "当前缓冲区已满，等待" << endl;
+		showMessage("The current buffer is full, wait");
+		Sleep(500);
 		condProducer.wait(lockerProducer);//先释放互斥锁，等待被唤醒
 	}
 	//生产商品
 	ID = ID % 20 + 1;
 	Product temp = { ID, "***" };
 	Q.push(temp);
-
+	string message = "produce:" + to_string(ID);
+	showMessage(message);
 	cout << this_thread::get_id() << "			生产了商品" << ID << endl;
 	SetCellRed(1, ID);
-	Sleep(1000);
+	Sleep(100);
 	condConsumer.notify_one();
 	cout << "[" << this_thread::get_id() << "] 释放了锁" << endl;
 }
@@ -45,19 +48,19 @@ void ConsumerActor()
 	unique_lock<mutex> lockerConsumer(m);//创建锁，保证缓存区的访问是互斥的
 	cout << this_thread::get_id() << "获得了锁" << endl;
 	while (Q.empty()) {
-		cout << "当前缓存区是空的，等待" << endl;
+		showMessage("The current cache is empty, wait");
+		Sleep(500);
 		//当前缓存区是空的了，那么该进程需要被暂停
 		condConsumer.wait(lockerConsumer);//先释放互斥锁，等待被唤醒
 	}
 	//消耗商品
 	Product temp = Q.front();
 	Q.pop();
-
-	cout << this_thread::get_id() << "					消耗了商品" << temp.id << endl;
-
+	string message = "consume:" + to_string(temp.id);
+	showMessage(message);
 	SetCellGray(1, temp.id);
-	Sleep(1000);
-
+	cout << this_thread::get_id() << "					消耗了商品" << temp.id << endl;
+	Sleep(100);
 	condProducer.notify_one();
 	cout << "[" << this_thread::get_id() << "] 释放了锁" << endl;
 }
@@ -65,12 +68,14 @@ void ConsumerActor()
 
 void ProducerTask() {
 	while (1) {
+		Sleep(10);
 		ProducerActor();
 	}
 }
 
 void ConsumerTask() {
 	while (1) {
+		Sleep(10);
 		ConsumerActor();
 	}
 }
@@ -85,7 +90,7 @@ void ThreadInit(int producerNum, int consumerNum)
 	for (int i = 0; i < consumerNum; i++)
 		consumerThread.push_back(thread(ConsumerTask));//创建消费者进程
 
-	//使用join语句使得进程得以完整执行
+	//使用join语句使得线程得以完整执行
 	for (int i = 0; i < producerNum; i++) {
 		if (producerThread[i].joinable())
 			producerThread[i].join();
@@ -107,7 +112,7 @@ int main() {
 	cin >> producerNum;
 	cout << "请输入消费者的数量：";
 	cin >> consumerNum;
-	draw();
+	draw(producerNum, consumerNum);
 	ThreadInit(producerNum, consumerNum);
 	return 0;
 }
